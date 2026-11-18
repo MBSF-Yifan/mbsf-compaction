@@ -1,0 +1,230 @@
+# 未必记忆（MBSF）压缩引擎的**包级装配层**——随 npm 包分发。
+#
+# 为什么要有这个文件（2026-09-14）：在它之前，「让未必记忆跑起来」要求用户
+# **手改自己 profile 的 `cordis.patch.yml`**（disable 掉官方 compaction-basic、
+# insert 未必记忆引擎）。装着不能直接用 = 分发缺口。DSH 官方给的正规口子是：
+# 装上的包声明 `dsh.bundle.patch`，把自己的 patch 层随包贡献出去
+# （见 .agents/notes/archived/simplification/2026-08-09-remove-repository-plugin.md：
+#  「the installed package declares `dsh.bundle.patch` to contribute its patch layer」）。
+# 于是 `dsh plugin --profile <name> add mbsf-compaction` 一条命令装完即可用。
+#
+# 两件事，缺一不可：
+#   ① disable 官方 `compaction-basic`——**同一个 `compaction` 服务只能有一个实现**，
+#      而 compaction-basic 在构造时会自注册 `agent/pre-step`（压力）与
+#      `agent/request-error`（上下文溢出恢复）两个钩子。若不禁用，两套引擎会
+#      **同时压同一个会话**（互不知情、各自重试、各自切断 KV 前缀）——
+#      2026-09-14 实测：同一会话 404 个折叠事务、平均 35 次/回合、59.6% 失败。
+#      本行按 id 定位、不带 `name`，是对既有行的配置覆盖（不是插件引用）。
+#   ② insert 本包的两个入口：UI 锚点 + 状态网关（记忆检索工具不插——公开版只装压缩）。
+#      本行是包自引用——官方校验对 `packageNameFromSpecifier(name) === manifest.name`
+#      的行豁免依赖检查（scripts/verify-cordis-config.ts:bundlePluginDependencyErrors）。
+#
+# 用户层仍然最后生效：profile 自己的 cordis.patch.yml 在本层之后应用，
+# 逐行 last-write-wins，所以用户想换回官方压缩后端照样覆盖得掉。
+#
+# ── 为什么「默认 preset」不写在本层（2026-10-09 小爪）───────────────────────
+# 背景：desktop profile 每次重启后，新建会话都回落成 `standard` 而不是「小爪」。
+# 根因不在本包，但结论落在这里——因为「往哪一层写」正是本文件的职责边界问题。
+#
+#   ① 默认 preset 由 `agent-preset-registry` 的 `config.default` 决定，官方包
+#      dsh-web-app/cordis.patch.yml 声明的是 `default: standard`。
+#   ② 该 registry 的 schema 是
+#        default:         z.string().required()
+#        selectedDefault: z.string().volatile()
+#      而 `get defaultId()` = `config.selectedDefault.get() ?? config.default`。
+#      `volatile()` = **进程内内存，重启即丢** ⟹ 在设置页点一次「小爪」只对
+#      当次进程有效，重启后必然回落到内置的 `standard`。
+#   ③ 修法是「在 profile 层按 id 定向覆盖 registry 行」，不是在本层设默认值。
+#
+# 为什么**不写在本层**（包级 patch）——两条都成立，缺一不可：
+#   · 对本 desktop profile **无效**：desktop 的 `dsh.profile.bundles` 是
+#     [dsh-base, dsh-web-app]，**不含本包**（本包只在 dependencies 里，供 preset
+#     域按名解析），所以本文件的任何行都不进 desktop 的合成树。
+#     ⚠️ 2026-10-19 小爪注：**此条已过期**——2026-10-17 18:11 desktop 的
+#     bundles 已加入本包（现为 [dsh-base, dsh-web-app, mbsf-compaction]），
+#     本层现在对 desktop **也生效**。上面「默认 preset 不写在本层」的结论
+#     因此**更强**了：本层既然会对 desktop 生效，写 `default: xiaozhua` 就
+#     真的会覆盖掉 profile 层的选择——更不该写在这里。
+#   · 对 **web profile 有害**：web 的 bundles **含本包**，本层会生效；但 web 的
+#     profile patch 里**没有** `xiaozhua` 这个 preset（实测 0 处）——一旦在此写
+#     `default: xiaozhua`，web 新建会话会直接失败：
+#       `agent-preset/not-found: Unknown agent preset: xiaozhua`
+# ⟹ 结论：preset 默认值是**部署选择**，不是**引擎能力**——归 profile 层。
+#    本层只负责压缩后端装配，不碰 preset 注册表。实际覆盖见
+#    `~/.dsh/profiles/desktop/cordis.patch.yml` 末尾的 `- id: agent-preset-registry`。
+
+# ⚠️ 公开版（2026-11-08）：只装配压缩引擎 + 状态网关 + UI。
+# 记忆坐标工具（mbsf-tools）**不插入**——这是压缩引擎，不是记忆产品。
+# 记忆统计也在 UI 层裁掉了（见 03-dsh/src/client/MbsfStatusTab.tsx）。
+- id: compaction-basic
+  disabled: true
+
+- insert:
+    # 浏览器半的**宿主域锚点**（2026-09-27 合并重构）：裸包名 = 唯一的 client source，
+    # 宿主半是空壳（见 src/index.ts）。没有这一行，dsh.client 不会被 dsh-client-modules
+    # 认到（preset 树被 PresetTree 刻意摘出宿主树，里面的行不算 source）。
+    - id: mbsf-ui
+      name: 'mbsf-compaction'
+
+    # ⚠️ 这里**刻意不插** compaction-mbsf（2026-10-19 小爪删）。
+    #
+    # 真引擎只由 **preset 的 compaction 组**按 realm 挂载——见 src/index.ts
+    # 头注：「引擎仍由 preset 的 ./compaction 行按 realm 挂载，保持『每个
+    # preset 一个压缩后端』的隔离语义不被破坏（同一层挂两个后端会同时压
+    # 同一个会话，2026-09-14 实测 59.6% 失败）」。
+    #
+    # 本层此前那行根域插入违反了这条隔离语义：包进了 dsh.profile.bundles
+    # 之后（2026-10-17 18:11），根域一份 + preset 域一份 = 双实例，实测
+    # ~/.mbsf/idle-probe.log 自那以后每次启动都是「引擎实例 #1 + #2」同 pid。
+    # 删掉后引擎实例恢复为 1（preset 域那份，带 isolate: {compaction: true}）。
+    #
+    # 子路径行也不会成为 client source（locatePkgJson 守卫），所以删它
+    # 不影响浏览器半——client source 由上面的 mbsf-ui 裸名锚点负责。
+
+    - id: mbsf-status
+      name: 'mbsf-compaction/status'
+# ── 替换 standard preset（2026-11-09 测试版：完整列表来自 0.2.2 dump）──────
+# 上一版整 preset 覆盖（从 asar insert 提取）在用户 0.2.2-rc.1 上导致标准
+# agent 坏。本版用 0.2.2 CLI 的 dump-config 提取的真实 preset-standard 段
+# （含全部 22 插件 + 嵌套 group），只把 compaction-basic 换成 mbsf。
+# applyEntryPatches 递归 group（buildMap）→ 嵌套 compaction 组不在 map 里
+# （preset-standard 非 group）⟹ 只能整条覆盖；完整列表保证不缺插件。
+- id: preset-standard
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: standard
+    order: 1
+    plugins:
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: You are a coding agent powered by the {{model}} model.
+      - id: agent-instructions
+        name: '@deepseek-ai/dsh-agent-instructions'
+        config:
+          maxBytes: 65536
+      - id: time-context
+        name: '@deepseek-ai/dsh-time-context'
+      - id: tool-bash
+        name: '@deepseek-ai/dsh-tool-bash'
+        disabled: !!js process.platform === 'win32'
+      - id: tool-pwsh
+        name: '@deepseek-ai/dsh-tool-pwsh'
+        disabled: !!js process.platform !== 'win32'
+      - id: tool-fs
+        name: '@deepseek-ai/dsh-tool-fs'
+        config:
+          applyPatch: false
+      - id: tool-fs-search
+        name: '@deepseek-ai/dsh-tool-fs-search'
+        config:
+          sampleOverCapGlobResults: false
+      - id: tool-jobs
+        name: '@deepseek-ai/dsh-tool-jobs'
+      - id: tool-schedule
+        name: '@deepseek-ai/dsh-tool-schedule'
+      - id: skill-filesystem
+        name: '@deepseek-ai/dsh-skill-filesystem'
+      - id: tool-skill
+        name: '@deepseek-ai/dsh-tool-skill'
+      - id: command-goal
+        name: '@deepseek-ai/dsh-command-goal'
+      - id: tool-goal
+        name: '@deepseek-ai/dsh-tool-goal'
+      - id: planning
+        name: cordis:group
+        group: true
+        isolate:
+          planMode: true
+        config:
+          - id: plan-mode
+            name: '@deepseek-ai/dsh-plan-mode'
+            config:
+              section: >
+                You are in plan mode. Stay in plan mode until the user approves
+                your plan through exit_plan_mode or switches the session mode.
+                Imperative language to implement changes means plan the
+                implementation, not execute it. A user's conversational
+                agreement — including an answer confirming something you asked —
+                approves nothing and does not end plan mode; fold the confirmed
+                decision into the plan and submit it through exit_plan_mode.
+
+
+                Explore first. Use non-mutating reads, searches, static
+                analysis, and checks to ground the plan in the actual
+                repository. Do not edit or write files, change configuration,
+                run formatters or code generation that rewrites tracked files,
+                commit, or otherwise carry out the plan. Prefer existing
+                functions and patterns over new machinery.
+
+
+                The tool catalog stays the same across modes for request-cache
+                stability. These plan-mode rules override any later tool
+                description or guidance that suggests using mutation tools;
+                those tools remain listed to keep the tool catalog unchanged. Do
+                not use todo_write to track this planning phase: it tracks
+                implementation after an approved plan, while the plan itself
+                belongs in exit_plan_mode.
+
+
+                Resolve discoverable facts by inspection. Use ask_user_question
+                only for user-owned choices or material ambiguity that
+                inspection cannot answer. Do not ask the user where code lives
+                or how current behavior works when you can find out.
+
+
+                Make the plan decision-complete: state the goal and success
+                criteria; group implementation changes by subsystem; identify
+                public API, schema, and data-flow changes; cover edge cases,
+                failure modes, tests, acceptance criteria, and explicit
+                assumptions. Keep it concise enough to review but detailed
+                enough that another engineer can implement it without making
+                design decisions.
+
+
+                When ready, call exit_plan_mode with the complete plan markdown,
+                starting with a # title. Make exit_plan_mode the only and final
+                tool call in that assistant response: it presents the plan for
+                approval, and implementation begins only in a later step after
+                approval. Do not paste the final plan as a plain reply or ask
+                "should I proceed?" through prose or ask_user_question. If
+                review rejects it, incorporate the feedback and present again.
+                If the review channel is unavailable or aborted, stay in plan
+                mode and ask the user to switch modes manually; do not proceed
+                with implementation.
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate:
+          compaction: true
+          toolResultPruner: true
+        config:
+          - id: compaction-mbsf
+            name: 'mbsf-compaction/compaction'
+          - id: command-compact
+            name: '@deepseek-ai/dsh-command-compact'
+          - id: tool-result-pruner
+            name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+            config:
+              thresholdChars: 8192
+              headChars: 4096
+              tailChars: 1024
+      - id: tool-ask-user
+        name: '@deepseek-ai/dsh-tool-ask-user'
+      - id: tool-todo
+        name: '@deepseek-ai/dsh-tool-todo'
+        config:
+          allowParallelInProgress: true
+      - id: tool-web
+        name: '@deepseek-ai/dsh-tool-web'
+        config:
+          fetch: true
+          searchTimeoutMs: 60000
+      - id: present
+        name: '@deepseek-ai/dsh-tool-present'
+      - id: tool-plugin-manager
+        name: '@deepseek-ai/dsh-plugin-manager/tools'
+        disabled: !!js '!ctx.get(''profileContext'')'
+      - id: tool-plugin-market
+        name: '@deepseek-ai/dsh-plugin-market/tools'
+        disabled: true

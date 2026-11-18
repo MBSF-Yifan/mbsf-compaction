@@ -1,0 +1,92 @@
+{
+  "name": "mbsf-compaction",
+  "type": "module",
+  "description": "未必科幻压缩引擎 · DSH 上下文压缩插件：零 LLM 调用、毫秒级｜MBSF Compression Engine for DeepSeek Harness",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "compaction",
+    "context-compression",
+    "mbsf",
+    "cordis",
+    "未必科幻"
+  ],
+  "author": "MBSF / 未必科幻",
+  "homepage": "https://www.npmjs.com/package/mbsf-compaction",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json && tsdown && node scripts/fix-bundles.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-agent": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-compaction": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-compaction-basic": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-llm": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-session": ">=0.1.0-rc.5",
+    "@deepseek-ai/cordis": ">=4.0.1",
+    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-settings": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-session-persistence": ">=0.1.0-rc.5",
+    "@deepseek-ai/dsh-session-format-catalog": ">=0.1.0-rc.5",
+    "@deepseek-ai/schemastery": ">=3.18.1"
+  },
+  "dependencies": {},
+  "version": "0.0.22",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./compaction": {
+      "types": "./lib/types/compaction.d.ts",
+      "default": "./lib/compaction.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./status": {
+      "types": "./lib/types/status-gateway.d.ts",
+      "default": "./lib/status.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "files": [
+    "lib/*.js",
+    "lib/bin/*.js",
+    "lib/**/*.d.ts",
+    "lib/**/*.map",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE",
+    "NOTICE",
+    "TRADEMARK.md",
+    "CONTRIBUTING.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@mbsf/core": "workspace:*"
+  }
+}
