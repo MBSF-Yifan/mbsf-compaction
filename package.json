@@ -33,7 +33,7 @@
     "@deepseek-ai/schemastery": ">=3.18.1"
   },
   "dependencies": {},
-  "version": "0.0.22",
+  "version": "0.0.23",
   "exports": {
     ".": {
       "types": "./lib/types/index.d.ts",
@@ -66,7 +66,6 @@
     "lib/**/*.map",
     "cordis.patch.yml",
     "README.md",
-    "README.en.md",
     "LICENSE",
     "NOTICE",
     "TRADEMARK.md",
