@@ -96,6 +96,7 @@ Local context compaction. Strips redundancy, no model, sub-100ms.
 - **Node.js ≥ 22** (ESM, build target es2024)
 - **Platform**: macOS / Linux / Windows all work (paths use `~/.dsh` and `~/.mbsf`; no platform-specific deps)
 - **Host**: **DeepSeek Harness (DSH) 0.2.x** (verified on 0.2.2) — a DSH plugin that takes over session compaction
+- **Host form**: DSH **Desktop app only** — this plugin is not supported on the **web** version (`dsh web` browser mode); do not install it there
 
 ### Install
 
