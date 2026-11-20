@@ -17,6 +17,7 @@
 - **Node.js ≥ 22**（ESM，构建目标 es2024）
 - **平台**：macOS / Linux / Windows 均可（路径统一用 `~/.dsh`、`~/.mbsf`，无平台特定依赖）
 - **宿主**：**DeepSeek Harness（DSH）0.2.x**（当前验证 0.2.2）——本包是 DSH 插件，装进 DSH 后接管会话压缩
+- **宿主形态**：DSH **桌面版（Desktop app）**——本插件仅适配 app 版；**web 版（`dsh web` 浏览器模式）不适配，请勿在 web 版安装使用**
 
 ## 安装
 
