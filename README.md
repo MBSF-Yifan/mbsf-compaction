@@ -1,8 +1,5 @@
 # 结构即语义——未必科幻压缩引擎
 
-[![dsh-plugin](https://img.shields.io/badge/dsh--plugin-plugin-6e40c9?style=flat)](https://github.com/topics/dsh-plugin) [![DeepSeek Harness](https://img.shields.io/badge/DeepSeek-Harness-4B6EF5?style=flat)](https://github.com/topics/deepseek-harness) [![npm](https://img.shields.io/npm/v/mbsf-compaction)](https://www.npmjs.com/package/mbsf-compaction)
-
-
 **中文** · [English](#english)
 
 本地上下文压缩，清冗余，免模型，毫秒级。
@@ -66,7 +63,6 @@
 │       └── session-reset.js  # 重启 / 会话重置 runner
 ├── cordis.patch.yml        # 装配层——覆盖内置 preset 的压缩组
 ├── README.md
-├── README.en.md
 ├── LICENSE
 ├── TRADEMARK.md
 └── CONTRIBUTING.md
@@ -141,7 +137,6 @@ Trimming is built for that case: cut old session history on demand (recoverable 
 │       └── session-reset.js  # restart / session-reset runner
 ├── cordis.patch.yml        # wiring layer — overrides the built-in preset's compaction group
 ├── README.md
-├── README.en.md
 ├── LICENSE
 ├── TRADEMARK.md
 └── CONTRIBUTING.md
